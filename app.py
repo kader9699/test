@@ -1,26 +1,73 @@
-import streamlit as st
-from response import response_generator
-st.title("This is my chatbot App")
+
+from flask import Flask, request, jsonify
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+app = Flask(__name__)
 
 
-# Initialize chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 
-# Display chat messages from history on app rerun
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
 
-# React to user input
-if prompt := st.chat_input("What is up?"):
-    # Add user message to chat history
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    # Display user message in chat message container
-    with st.chat_message("user"):
-        st.markdown(prompt)
-    # Display assistant response in chat message container
-    with st.chat_message("assistant"):
-        response = st.write_stream(response_generator())
-        # Add assistant response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": response})
+
+
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(
+            host="dpg-cpkch3nsc6pc73er0mi0-a",
+            port=5432,
+            database="sensor_csmt",
+            user="sensor_csmt_user",
+            password="hFOCXl45t2bEoj28CKFxvwwWLmpS3tyq"
+        )
+        return conn
+    except Exception as e:
+        return None
+    
+    
+def create_table():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sensor (
+            id SERIAL PRIMARY KEY,
+            temperature REAL,
+            humidity REAL,
+            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    cursor.close()
+    conn.close()
+# Endpoint pour insérer des données
+@app.route('/add_data', methods=['POST'])
+def add_data():
+    create_table()
+    data = request.get_json()
+    temperature = data.get('temperature')
+    humidity = data.get('humidity')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        'INSERT INTO DHT (temperature, humidity) VALUES (%s, %s)',
+        (temperature, humidity)
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return jsonify({"status": "success"}), 201
+
+# Endpoint pour récupérer des données
+@app.route('/get_data', methods=['GET'])
+def get_data():
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('SELECT * FROM DHT')
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify(rows), 200
+
+if __name__ == '__main__':
+    app.run(debug=True)
