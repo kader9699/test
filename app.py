@@ -49,7 +49,7 @@ def add_data():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT INTO DHT (temperature, humidity) VALUES (%s, %s)',
+        'INSERT INTO sensor (temperature, humidity) VALUES (%s, %s)',
         (temperature, humidity)
     )
     conn.commit()
@@ -63,7 +63,7 @@ def add_data():
 def get_data():
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute('SELECT * FROM DHT')
+    cursor.execute('SELECT * FROM sensor')
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
